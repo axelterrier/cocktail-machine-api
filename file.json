@@ -1,0 +1,13 @@
+{
+  "idRestaurant": 184,
+  "menu": {
+    "items": [
+      {
+        "name": "Pho Bo",
+        "item_category": "Plat",
+        "description": "Un plat de nouilles de riz traditionnel vietnamien servi avec du boeuf et des herbes fraîches.",
+        "price": 12
+      }
+    ]
+  }
+}
