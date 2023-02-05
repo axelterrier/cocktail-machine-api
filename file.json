@@ -1,13 +1,9 @@
-{
-  "idRestaurant": 184,
-  "menu": {
-    "items": [
-      {
-        "name": "Pho Bo",
-        "item_category": "Plat",
-        "description": "Un plat de nouilles de riz traditionnel vietnamien servi avec du boeuf et des herbes fraîches.",
-        "price": 12
-      }
-    ]
+[
+  RowDataPacket {
+    Cocktail_ID: 0,
+    Nom_Cocktail: '7 & 7',
+    Description_Cocktail: 'Ce cocktail est similaire au Cuba Libre et peut faire référence à toute boisson composée de whisky mélangé à une boisson au citron non-alcoolisée.',
+    Est_Disponible: 0,
+    Image_Cocktail: <Buffer ff d8 ff e0 00 10 4a 46 49 46 00 01 01 00 00 01 00 01 00 00 ff db 00 43 00 06 04 05 06 05 04 06 06 05 06 07 07 06 08 0a 10 0a 0a 09 09 0a 14 0e 0f 0c ... 75921 more bytes>
   }
-}
+]
