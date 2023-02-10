@@ -1,6 +1,7 @@
 require("dotenv").config();
 const cors = require("cors");
 const jwtDecode = require("jwt-decode");
+const bcrypt = require('bcrypt');
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const app = express();
@@ -26,8 +27,8 @@ const url = "/api/V1";
 const pool = mysql.createPool({
   connectionLimit: 10,
   host: 'localhost',
-  user: 'root',
-  password: '',
+  user: 'Axel',
+  password: 'L@kk@99!',
   database: 'cocktail-machine'
 });
 
@@ -87,6 +88,7 @@ app.get(url + '/utilisateurs/:email', async (req, res) => {
             prenom: result[0].prenom,
             nom: result[0].nom,
             email: result[0].email,
+            password: result[0].password,
             photo_url: result[0].photo_url,
             age: result[0].age,
             taille: result[0].taille,
@@ -106,31 +108,34 @@ app.get(url + '/utilisateurs/:email', async (req, res) => {
   });
 });
 
-app.post(url + '/utilisateurs', async (req, res) => {
+app.post(url + '/register', async (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err
 
-    console.log('Connecté en tant que id ' + connection.threadId)
-    let prenom = req.body.given_name;
-    let nom = req.body.family_name;
+    console.log('Connected as id ' + connection.threadId)
+    let prenom = req.body.prenom;
+    let nom = req.body.nom;
     let email = req.body.email;
-    let photo_url = req.body.picture;
-    let utilisateur = [email, nom, prenom, photo_url];
+    let password = req.body.password;
 
     let sqlSelect = "SELECT * FROM utilisateurs WHERE email = ?";
-    connection.query(sqlSelect, [email], (err, result) => {
+    connection.query(sqlSelect, [email], async (err, result) => {
       if(result.length > 0){
-        connection.release()
+        connection.release();
         res.send({
           message: "L'utilisateur est déjà inscrit"
         });
-      }else{
-        let sql = "INSERT INTO utilisateurs (email, nom, prenom, photo_url) VALUES ?";
+      } else {
+        let hashedPassword = await bcrypt.hash(password, 10);
+        let utilisateur = [email, nom, prenom, hashedPassword];
+        let sql = "INSERT INTO utilisateurs (email, nom, prenom, password) VALUES ?";
         connection.query(sql, [[utilisateur]], (err, result) => {
-          connection.release() // return the connection to pool
+          connection.release(); // return the connection to pool
           if (!err) {
+            let token = jwt.sign({ email: email }, process.env.JWT_SECRET, { expiresIn: '24h' });
             res.send({
-              message: "Utilisateur ajouté avec succès!"
+              message: "Utilisateur ajouté avec succès!",
+              token: token
             });
           } else {
             console.log(err)
@@ -138,11 +143,52 @@ app.post(url + '/utilisateurs', async (req, res) => {
               error: "Une erreur s'est produite lors de l'ajout de l'utilisateur."
             });
           }
-        })
+        });
       }
-    })
-  })
-})
+    });
+  });
+});
+
+app.post(url + '/login', async (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+
+    console.log('Connected as id ' + connection.threadId);
+    let email = req.body.email;
+    let password = req.body.password;
+
+    let sqlSelect = "SELECT * FROM utilisateurs WHERE email = ?";
+    connection.query(sqlSelect, [email], async (err, result) => {
+      if (!err) {
+        if (result.length > 0) {
+          const user = result[0];
+          const isPasswordCorrect = await bcrypt.compare(password, user.password);
+
+          if (isPasswordCorrect) {
+            let token = jwt.sign({ email: email }, process.env.JWT_SECRET, { expiresIn: '24h' });
+            res.send({
+              message: "Connexion réussie!",
+              token: token
+            });
+          } else {
+            res.send({
+              error: "Mot de passe incorrect."
+            });
+          }
+        } else {
+          res.send({
+            error: "Aucun utilisateur trouvé avec cet email."
+          });
+        }
+      } else {
+        res.send({
+          error: "Une erreur s'est produite lors de la récupération des informations de l'utilisateur."
+        });
+      }
+    });
+  });
+});
+
 
 app.put(url + '/utilisateurs/:email', async (req, res) => {
   pool.getConnection((err, connection) => {
@@ -232,7 +278,6 @@ app.get(url + '/cocktails', async (req, res) => {
 app.put(url + '/cocktail/:id', async (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err
-    console.log('Connected as id ' + connection.threadId)
     connection.query(`UPDATE cocktail SET Est_Disponible = ${req.body.Est_Disponible} WHERE Cocktail_ID = ${req.params.id}`, (err, rows) => {
       connection.release() // return the connection to pool
 
@@ -250,7 +295,6 @@ app.put(url + '/cocktail/:id', async (req, res) => {
 app.get(url + '/cocktailcomposition', async (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err
-    console.log('connected as id ' + connection.threadId)
     connection.query(`SELECT * from cocktail_composition`, (err, rows) => {
       connection.release() // return the connection to pool
 
