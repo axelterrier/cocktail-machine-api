@@ -34,9 +34,8 @@ const pool = mysql.createPool({
 
 app.use(cors({
   origin: 'http://localhost:8100',
-  methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-  allowedHeaders: ['content-type'],
-  credentials: true
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
@@ -120,7 +119,7 @@ app.post(url + '/register', async (req, res) => {
 
     let sqlSelect = "SELECT * FROM utilisateurs WHERE email = ?";
     connection.query(sqlSelect, [email], async (err, result) => {
-      if(result.length > 0){
+      if (result.length > 0) {
         connection.release();
         res.send({
           message: "L'utilisateur est déjà inscrit"
@@ -238,6 +237,25 @@ app.get(url + '/ingredients', async (req, res) => {
   })
 })
 
+app.get(url + '/ingredient/:id', async (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err
+    connection.query(`SELECT * from ingredients WHERE ID_Ingredient = ${req.params.id}`, (err, rows) => {
+      connection.release() // return the connection to pool
+
+      if (!err) {
+        res.send(rows)
+      } else {
+        console.log(err)
+      }
+
+      // if(err) throw err
+      console.log('Données utilisateurs : \n', rows)
+    })
+  })
+})
+
+
 app.put(url + '/ingredients/:id', async (req, res) => {
   pool.getConnection((err, connection) => {
     if (err) throw err
@@ -274,6 +292,41 @@ app.get(url + '/cocktails', async (req, res) => {
     })
   })
 })
+
+app.get(url + '/cocktailsfast', async (req, res) => {
+  pool.getConnection((err, connection) => {
+    if (err) throw err
+    console.log('connected as id ' + connection.threadId)
+    connection.query('SELECT Cocktail_ID from cocktail WHERE Est_Disponible = 1', (err, rows) => {
+      connection.release() // return the connection to pool
+
+      if (!err) {
+        res.send(rows)
+      } else {
+        console.log(err)
+      }
+
+      // if(err) throw err
+      console.log('Données utilisateurs : \n', rows)
+    })
+  })
+})
+
+app.get(url + '/cocktail/:id', async (req, res) => {
+  const cocktailId = req.params.id;
+  pool.getConnection((err, connection) => {
+    if (err) throw err;
+    connection.query(`SELECT * from cocktail WHERE Cocktail_ID = ${cocktailId}`, (err, rows) => {
+      connection.release(); // return the connection to pool
+      if (!err) {
+        res.send(rows[0]);
+      } else {
+        console.log(err);
+      }
+      console.log(`Données cocktail avec l'id ${cocktailId} : \n, rows`);
+    });
+  });
+});
 
 app.put(url + '/cocktail/:id', async (req, res) => {
   pool.getConnection((err, connection) => {
@@ -328,5 +381,69 @@ app.get(url + '/cocktailcomposition/:id', async (req, res) => {
     })
   })
 })
+
+app.post(url + '/historique', async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let email = decoded.email;
+    pool.getConnection((err, connection) => {
+      if (err) throw err;
+      
+      console.log('Connected as id ' + connection.threadId);
+      let cocktailId = req.body.history.cocktailId;
+      let ingredientId = req.body.history.ingredientId;
+      let quantite = req.body.history.quantite;
+      let tauxAlcool = req.body.history.tauxAlcool;
+      let timestamp = new Date().toISOString().slice(0, 19).replace('T', ' ');
+      let sqlInsert = "INSERT INTO historique (Email, Cocktail_ID, ID_Ingredient, Quantite, Taux_Alcool, timestamp) VALUES (?, ?, ?, ?, ?, ?)";
+      connection.query(sqlInsert, [email, cocktailId, ingredientId, quantite, tauxAlcool, timestamp], (err, result) => {
+        if (!err) {
+          res.send({
+            message: "Entrée ajoutée à l'historique avec succès!"
+          });
+        } else {
+          res.send({
+            error: "Une erreur s'est produite lors de l'ajout de l'entrée à l'historique."
+          });
+        }
+      });
+    });
+  } catch (err) {
+    return res.status(401).send({
+      error: "Token non valide"
+    });
+  }
+});
+
+app.get(url + '/historique', async (req, res) => {
+  const token = req.header("Authorization").replace("Bearer ", "");
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    let email = decoded.email;
+    console.log('email : ' + email)
+    pool.getConnection((err, connection) => {
+      if (err) throw err;
+      console.log('Connected as id ' + connection.threadId);
+      let sqlSelect = "SELECT * FROM historique WHERE Email = ?";
+      connection.query(sqlSelect, [email], (err, result) => {
+        if (!err) {
+          res.send({
+            result
+          });
+        } else {
+          res.send({
+            error: "Une erreur s'est produite lors de la récupération de l'historique."
+          });
+        }
+      });
+    });
+  } catch (err) {
+    return res.status(401).send({
+      error: "Token non valide"
+    });
+  }
+});
+
 
 module.exports = app;
